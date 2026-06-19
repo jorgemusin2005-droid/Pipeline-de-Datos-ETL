@@ -1,0 +1,16 @@
+FROM quay.io/jupyter/pyspark-notebook:spark-3.5.0
+
+USER root
+
+RUN pip install --no-cache-dir \
+    matplotlib==3.9.1 \
+    pandas==2.2.2 \
+    plotly==5.22.0 \
+    pymysql==1.1.1 \
+    pyspark==3.5.0 \
+    requests==2.32.3 \
+    seaborn==0.13.2 \
+    sqlalchemy==2.0.31 \
+    tqdm==4.66.4
+
+USER ${NB_UID}

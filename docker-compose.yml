@@ -1,0 +1,69 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: nyc_taxi_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: nyc_taxi_dw
+      MYSQL_USER: etl_user
+      MYSQL_PASSWORD: etl_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} --silent"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - data_platform
+
+  pyspark-jupyter:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.jupyter
+    image: nyc-taxi-pyspark-jupyter:latest
+    container_name: nyc_taxi_pyspark_jupyter
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: "nyc-taxi-etl"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: nyc_taxi_dw
+      MYSQL_USER: etl_user
+      MYSQL_PASSWORD: etl_password
+      SPARK_DRIVER_MEMORY: 2g
+      SPARK_EXECUTOR_MEMORY: 2g
+      PYSPARK_SUBMIT_ARGS: >-
+        --packages com.mysql:mysql-connector-j:8.4.0
+        pyspark-shell
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    volumes:
+      - ./data:/home/jovyan/work/data
+      - ./notebooks:/home/jovyan/work/notebooks
+      - ./src:/home/jovyan/work/src
+      - ./sql:/home/jovyan/work/sql
+      - ./requirements.txt:/home/jovyan/work/requirements.txt:ro
+    working_dir: /home/jovyan/work
+    networks:
+      - data_platform
+
+volumes:
+  mysql_data:
+
+networks:
+  data_platform:
+    driver: bridge
